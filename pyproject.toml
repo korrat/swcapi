@@ -1,25 +1,29 @@
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.11.25,<0.12.0"]
+build-backend = "uv_build"
 
-[tool.poetry]
+[project]
 name = "swcapi"
 version = "0.0.1"
 description = "Software Campus Easy Verein API"
+authors = [{ name = "r.strice@gmail.com" }]
+requires-python = ">=3.11"
 readme = "README.md"
-authors = ["r.strice@gmail.com"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "dynaconf>=3.2.0,<4",
+    "python-easyverein>2,<3",
+]
 
-packages = [{ include = "swcapi" }]
-
-[tool.poetry.scripts]
-swcapi = "swcapi.__main__:main"
-
-[tool.poetry.dependencies]
-python = ">=3.11,<4.0"
-dynaconf = "^3.2.0"
-python-easyverein = "^1.1"
-
-[tool.poetry.extras]
+[tool.uv.build-backend]
+module-name = ["swcapi"]
+module-root = ""
 
 [tool.black]
 line-length = 120
