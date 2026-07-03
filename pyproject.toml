@@ -11,8 +11,11 @@ authors = ["r.strice@gmail.com"]
 
 packages = [{ include = "swcapi" }]
 
+[tool.poetry.scripts]
+swcapi = "swcapi.__main__:main"
+
 [tool.poetry.dependencies]
-python = ">=3.11"
+python = ">=3.11,<4.0"
 dynaconf = "^3.2.0"
 python-easyverein = "^1.1"
 
