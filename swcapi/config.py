@@ -20,7 +20,7 @@ class Config(Dynaconf):
     def __setattr__(self, name: str, value: Any) -> None:
         """
         Intercepts setting assignments (e.g., config.apikey = "new_value").
-        
+
         1. Updates the setting attribute in memory via Dynaconf's parent handler.
         2. Checks if the setting name exists in the `updatable` dictionary.
         3. If a match is found, persists the updated setting to the mapped configuration file.
@@ -42,7 +42,7 @@ class Config(Dynaconf):
     def _write_config(self, file_name: str, name: str, value: Any) -> None:
         """
         Persists a single setting update back to the specified configuration file on disk.
-        
+
         Uses Dynaconf's native `loaders.write` to merge the updated setting value
         into the TOML file at `ROOT_PATH_FOR_DYNACONF / file_name`.
 

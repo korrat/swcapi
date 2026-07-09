@@ -1,13 +1,16 @@
+import csv
 import sys
 from pprint import pprint
 
 from easyverein import EasyvereinAPI
+from easyverein.models.member import MemberFilter
 
 from swcapi.config import settings
+from swcapi.models import CustomField, Member
 from swcapi.utils import handle_token_refresh
 
 
-def main() -> None:
+def fetch_members() -> tuple[Member]:
     # Initialize Easyverein API client
     ev_client = EasyvereinAPI(
         api_key=settings.apikey,
@@ -16,48 +19,76 @@ def main() -> None:
         auto_refresh_token=True,
     )
 
-    print("Fetching custom fields...")
-    try:
-        custom_fields = {}
-        all_cfs = ev_client.custom_field.get_all()
-        for cf in all_cfs:
-            custom_fields[cf.id] = cf.name
-    except Exception as e:
-        print(f"Error fetching custom fields: {e}", file=sys.stderr)
-        sys.exit(1)
+    # FIXME: this should be changed to be opt-in for members
+    filter = ev_client.member.get_all(
+        query="{id}",
+        search=MemberFilter(
+            custom_field_name="Ich möchte NICHT auf der Alumni-Homepage gelistet werden", custom_field_value="True"
+        ),
+    )
 
+    members = ev_client.member.get_all(
+        query="{id,_profilePicture,membershipNumber,contactDetails{familyName,firstName},customFields{customField{id,name},value}}",
+        search=MemberFilter(id__in=[m.id for m in filter]),
+    )
+
+    return tuple(
+        Member(
+            id=int(m.membershipNumber),
+            firstName=m.contactDetails.firstName,
+            familyName=m.contactDetails.familyName,
+            profilePicture=(
+                ev_client.c.fetch_file(m.profilePicture)[0]
+                if m.profilePicture != "https://easyverein.com/app/image/defaultUserImage.png"
+                else None
+            ),
+            customFields=tuple(CustomField(name=cf.customField.name, value=cf.value) for cf in m.customFields),
+        )
+        for m in members
+    )
+
+
+def saveProfilePicture(id: int, data: bytes | None) -> str | None:
+    if data is None:
+        return None
+
+    path = f"output/profile-pictures/{id}.png"
+    with open(path, mode="wb") as f:
+        f.write(data)
+
+    return path
+
+
+def main() -> None:
     print("Fetching members...")
     try:
-        members, _ = ev_client.member.get(
-            query="{id,membershipNumber,contactDetails{familyName,firstName},customFields}"
-        )
+        members = fetch_members()
     except Exception as e:
         print(f"Error fetching members: {e}", file=sys.stderr)
         sys.exit(1)
 
-    if not members:
-        print("No members found.")
-        return
+    fieldnames = (
+        "id",
+        "firstName",
+        "familyName",
+        "profilePicture",
+        *set(cf.name for m in members for cf in m.customFields),
+    )
 
-    m = members[0]
-    print(f"\nCustom fields for member {m.membershipNumber} ({m.contactDetails.firstName} {m.contactDetails.familyName}):")
+    with open("output/members.csv", mode="w") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
 
-    try:
-        fields, _ = ev_client.member.custom_field(m.id).get()
-        for cf in fields:
-            # Parse custom field ID from the endpoint URL reference
-            cf_id = int(str(cf.customField).split("/")[-1])
-            name = custom_fields.get(cf_id, "X")
-            print(f"  {name}: {cf.value}")
-    except Exception as e:
-        print(f"Error fetching member custom fields: {e}", file=sys.stderr)
-
-    print("\nFetching specific custom field by ID 13081650:")
-    try:
-        cf = ev_client.custom_field.get_by_id(13081650)
-        pprint(cf)
-    except Exception as e:
-        print(f"Error fetching custom field 13081650: {e}")
+        for m in members:
+            writer.writerow(
+                {
+                    "id": m.id,
+                    "firstName": m.firstName,
+                    "familyName": m.familyName,
+                    "profilePicture": saveProfilePicture(m.id, m.profilePicture),
+                }
+                | {field.name: field.value for field in m.customFields}
+            )
 
 
 if __name__ == "__main__":

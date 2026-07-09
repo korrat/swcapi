@@ -7,3 +7,4 @@ config/
 *.pkl
 
 *__pycache__*
+output/
