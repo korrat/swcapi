@@ -1,7 +1,7 @@
 import importlib.resources as res
 from typing import Any, ClassVar
 
-from dynaconf import Dynaconf, Validator, loaders
+from dynaconf import Dynaconf, loaders
 
 PACKAGE_ROOT = res.files("swcapi")
 PROJECT_ROOT = PACKAGE_ROOT.parent

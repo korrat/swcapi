@@ -1,16 +1,18 @@
 import csv
 import sys
-from pprint import pprint
+from typing import cast
 
 from easyverein import EasyvereinAPI
+from easyverein.models.contact_details import ContactDetails
 from easyverein.models.member import MemberFilter
+from easyverein.models.member_custom_field import MemberCustomField
 
 from swcapi.config import settings
 from swcapi.models import CustomField, Member
 from swcapi.utils import handle_token_refresh
 
 
-def fetch_members() -> tuple[Member]:
+def fetch_members() -> tuple[Member, ...]:
     # Initialize Easyverein API client
     ev_client = EasyvereinAPI(
         api_key=settings.apikey,
@@ -29,27 +31,24 @@ def fetch_members() -> tuple[Member]:
 
     members = ev_client.member.get_all(
         query="{id,_profilePicture,membershipNumber,contactDetails{familyName,firstName},customFields{customField{id,name},value}}",
-        search=MemberFilter(id__in=[m.id for m in filter]),
+        search=MemberFilter(id__in=[cast(int, m.id) for m in filter]),
     )
 
     return tuple(
-        Member(
-            id=int(m.membershipNumber),
-            firstName=m.contactDetails.firstName,
-            familyName=m.contactDetails.familyName,
+        Member.from_api(
+            m,
             profilePicture=(
-                ev_client.c.fetch_file(m.profilePicture)[0]
+                ev_client.c.fetch_file(str(m.profilePicture))[0]
                 if m.profilePicture != "https://easyverein.com/app/image/defaultUserImage.png"
                 else None
             ),
-            customFields=tuple(CustomField(name=cf.customField.name, value=cf.value) for cf in m.customFields),
         )
         for m in members
     )
 
 
-def saveProfilePicture(id: int, data: bytes | None) -> str | None:
-    if data is None:
+def saveProfilePicture(id: int | None, data: bytes | None) -> str | None:
+    if id is None or data is None:
         return None
 
     path = f"output/profile-pictures/{id}.png"
@@ -72,7 +71,7 @@ def main() -> None:
         "firstName",
         "familyName",
         "profilePicture",
-        *set(cf.name for m in members for cf in m.customFields),
+        *set(cf for m in members for cf in m.customFields),
     )
 
     with open("output/members.csv", mode="w") as f:
@@ -87,7 +86,7 @@ def main() -> None:
                     "familyName": m.familyName,
                     "profilePicture": saveProfilePicture(m.id, m.profilePicture),
                 }
-                | {field.name: field.value for field in m.customFields}
+                | {field.name: field.value for field in m.customFields.values()}
             )
 
 

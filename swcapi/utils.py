@@ -1,4 +1,5 @@
 from easyverein import BearerToken
+
 from swcapi.config import settings
 
 
